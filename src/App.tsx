@@ -3,7 +3,7 @@ import reactLogo from './assets/react.svg'
 import './App.css'
 
 import { useQueryClient, useWallet, useSigningClient } from '@sei-js/react'
-import {   StdFee } from '@cosmjs/stargate'
+import {   StdFee} from '@cosmjs/stargate' 
 import Long from 'long'
 
 
@@ -36,7 +36,7 @@ function App() {
     chainConfiguration: chainConfig,
   })
 
-  const { queryClient, isLoading } = useQueryClient(chainConfig.restUrl)
+  let { queryClient, isLoading } = useQueryClient(chainConfig.restUrl)
   const { signingClient } = useSigningClient(chainConfig.rpcUrl, offlineSigner)
   useEffect(() => {
     suggestChain()
@@ -167,17 +167,11 @@ function App() {
       const accounts = await offlineSigner?.getAccounts();
       console.log("account address", accounts);
 
-
-      // Check whether account exist in blockchain or not 
-      const account = await queryClient.sei.auth.v1beta1.account({ address: accounts[0].address });
-      console.log("account info", account)
-
-      // If account not exist call the faucet 
-
+      // Use axios to call the faucet endpoint to get the tokens
 
 
       // Query the account balance
-      const accountBalance = await queryClient.sei.bank.v1beta1.allBalances({ address: accounts[0].address });
+      const accountBalance = await queryClient.cosmos.bank.v1beta1.allBalances({ address: accounts[0].address });
       console.log("account Balance", accountBalance);
 
     }
