@@ -1,5 +1,3 @@
-
-
 import { useCallback, useEffect, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import './App.css'
@@ -8,6 +6,7 @@ import { useQueryClient, useWallet, useSigningClient } from '@sei-js/react'
 import { GasPrice, SigningStargateClient, StdFee, defaultRegistryTypes } from '@cosmjs/stargate'
 import Long from 'long'
 import {Registry} from '@cosmjs/proto-signing'
+import { getSigningClient } from '@sei-js/core'
 
 const address = "sei129ekzf5pmmtf2ktkutzpkxch0pedkvq2sqqzkw";
 const contractAddr = "sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m";
@@ -50,11 +49,16 @@ function App() {
   const { signingClient } = useSigningClient(chainConfig.rpcUrl, offlineSigner)
 
   console.log("SigningClient",signingClient)
-  const options = { gasPrice: gasPrice, gasLimits: gasLimits, registry: new Registry([...signingClient.registry]) };
   
   const stargateClient = async() =>{
-      const client = await SigningStargateClient.connect(chainConfig.rpcUrl, offlineSigner, options)
+    const options = { gasPrice: gasPrice, gasLimits: gasLimits, registry : await signingClient.registry};
+      const client = await SigningStargateClient.connectWithSigner(chainConfig.rpcUrl, offlineSigner, options)
       return client
+  }
+
+  const getSeiSigningClient= async () =>{
+    const seiClient = await getSigningClient("localhost:26657", offlineSigner )
+    return seiClient
   }
 
   useEffect(() => {
@@ -122,19 +126,19 @@ function App() {
       typeUrl: '/seiprotocol.seichain.dex.MsgPlaceOrders',
       value: {
         creator: address,
-        funds: [{ denom: "uusdc", amount: "5000000" }],
+        funds: [{ denom: "usdc", amount: "5000000" }],
         contractAddr: contractAddr,
         orders: [{
-          id: 0,
+          id: Long.fromNumber(0),
           status: 0,
           account: address,
           contractAddr: contractAddr,
-          price: "200000",
-          quantity: "1",
+          price:"1000000000000000000",
+          quantity: "2000000000000000000",
           priceDenom: "USDC",
           assetDenom: "SEI",
           orderType: 0,
-          positionDirection: 1,
+          positionDirection: 0,
           data: "{\"leverage\":\"1\",\"position_effect\":\"Open\"}",
           statusDescription: ""
         }]
@@ -142,7 +146,7 @@ function App() {
     }
 
     console.log("msg ", msgOrder)
-    console.log("signingCLient", signingClient)
+    console.log("signingCLient", client)
     const res = await client.signAndBroadcast(address, [msgOrder], fee, "test msg place order")
     console.log("msg place order response", res)
   }
