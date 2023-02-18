@@ -1017,7 +1017,7 @@
   "resolved" "https://registry.npmjs.org/long/-/long-4.0.0.tgz"
   "version" "4.0.0"
 
-"long@^5.2.0":
+"long@^5.2.0", "long@^5.2.1":
   "integrity" "sha512-GKSNGeNAtw8IryjjkhZxuKB3JzlcLTwjtiQCHKvqQet81I93kXslhDQruGI/QsddO83mcDToBVy7GqGS/zYf/A=="
   "resolved" "https://registry.npmjs.org/long/-/long-5.2.1.tgz"
   "version" "5.2.1"

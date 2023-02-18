@@ -1,87 +1,214 @@
+
+
 import { useCallback, useEffect, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import './App.css'
 
-import {useQueryClient, }from '@sei-js/react'
-import { DirectSecp256k1Wallet} from '@cosmjs/proto-signing'
-import {fromHex} from '@cosmjs/encoding';
-import { coins, GasPrice } from '@cosmjs/stargate'
-import {SigningStargateClient} from '@cosmjs/stargate'
-import {getSigningClient} from '@sei-js/core'
+import { useQueryClient, useWallet, useSigningClient } from '@sei-js/react'
+import { GasPrice, SigningStargateClient, StdFee, defaultRegistryTypes } from '@cosmjs/stargate'
+import Long from 'long'
+import {Registry} from '@cosmjs/proto-signing'
 
+const address = "sei129ekzf5pmmtf2ktkutzpkxch0pedkvq2sqqzkw";
+const contractAddr = "sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m";
 
-
-
-const privKey = "5f609f16cbde54ce24f3b3c04bc330ae78c6cf61a609a863a12f242f1648a868";
-const address  = "sei1g3up87c3ae95nt9ae3lu6jdsak3xd2n9yd6m6d";
-
-
-const gasPrice = GasPrice.fromString('0.01usei');
-const gasLimits = {
-  send: 200000,
-};
-
- function App() {
-
-  const [count, setCount] = useState(0)
-  const { queryClient, isLoading } = useQueryClient("https://sei-testnet-rest.brocha.in")
-
-  useEffect(()=>{
-      getAccountBalance();
-        getShorBookAllQuery();
-        getSigningClientO();
-        getSeiSigningClient();
-      sendTokens();
-  },[])
-
-
-  
-  const getSigningClientO = async () =>{
-    const options = { gasPrice: gasPrice, gasLimits: gasLimits , registry: await (await getSeiSigningClient()).registry };
-
-    const wallet = await DirectSecp256k1Wallet.fromKey(fromHex(privKey), 'sei');
-    
-    const client = await SigningStargateClient.connectWithSigner("localhost:26657",wallet,options);
-    console.log(client)
-    return client
-  }
-
-  const getSeiSigningClient= async () =>{
-    const wallet = await DirectSecp256k1Wallet.fromKey(fromHex(privKey), 'sei');
-
-    const seiClient = await getSigningClient("localhost:26657",wallet)
-    return seiClient
-  }
-
-  const sendTokens = async () =>{
-    const client = await getSigningClientO()
-    const resSend = await client.sendTokens(address, address, coins(1000000, 'usei'), "auto","test token transfer");
-  console.log(resSend);
+const chainConfig = {
+  chainId: "sei",
+  rpcUrl: 'https://rpc.sei.autonomy.network/',
+  restUrl: 'https://lcd.sei.autonomy.network/',
 }
 
-  const getAccountBalance = useCallback(async () =>{
-    if (!isLoading){
+const fee: StdFee = {
+  amount: [
+    {
+      denom: 'usei',
+      amount: '2000',
+    },
+  ],
+  gas: '200000',
+};
 
-      const wallet = await DirectSecp256k1Wallet.fromKey(fromHex(privKey), 'sei');
-      const [account] = await wallet.getAccounts();
-      console.log(account.address);
-      const accountBalance = await queryClient.cosmos.bank.v1beta1.allBalances({address: account.address});
-      console.log("account Balance",accountBalance);
-    }
- 
-    },[isLoading])
 
-  const getShorBookAllQuery = useCallback (async () =>{
 
-    if (!isLoading){
-      const query = await queryClient.seiprotocol.seichain.dex.shortBookAll({contractAddr: "sei1466nf3zuxpya8q9emxukd7vftaf6h4psr0a07srl5zw74zh84yjqpeheyc",
-      priceDenom:"UST2",
-      assetDenom:"ATOM" })
-      console.log(query)
-    }
-    
-  }, [isLoading])
+const gasPrice = GasPrice.fromString('0.002usei');
+  const gasLimits = {
+    send: 200000,
+  };
+
+
+
+function App() {
+  const [count, setCount] = useState(0)
+
+  const { offlineSigner } = useWallet(window, {
+    inputWallet: 'keplr',
+    autoConnect: true,
+    chainConfiguration: chainConfig,
+  })
+
+  const { queryClient, isLoading } = useQueryClient(chainConfig.restUrl)
+  const { signingClient } = useSigningClient(chainConfig.rpcUrl, offlineSigner)
+
+  console.log("SigningClient",signingClient)
+  const options = { gasPrice: gasPrice, gasLimits: gasLimits, registry: new Registry([...signingClient.registry]) };
   
+  const stargateClient = async() =>{
+      const client = await SigningStargateClient.connect(chainConfig.rpcUrl, offlineSigner, options)
+      return client
+  }
+
+  useEffect(() => {
+    suggestChain()
+    getAccountBalance();
+    getShorBookAllQuery();
+    getLongBookAllQuery();
+    getOrdersOfAccount();
+    msgPlaceOrder();
+  }, [isLoading])
+
+  const suggestChain = async () => {
+    return window.keplr.experimentalSuggestChain({
+      chainId: chainConfig.chainId,
+      chainName: "Sei Devnet",
+      rpc: chainConfig.rpcUrl,
+      rest: chainConfig.restUrl,
+      bip44: {
+        coinType: 118,
+      },
+      bech32Config: {
+        bech32PrefixAccAddr: "sei",
+        bech32PrefixAccPub: "sei" + "pub",
+        bech32PrefixValAddr: "sei" + "valoper",
+        bech32PrefixValPub: "sei" + "valoperpub",
+        bech32PrefixConsAddr: "sei" + "valcons",
+        bech32PrefixConsPub: "sei" + "valconspub",
+      },
+      currencies: [
+        {
+          coinDenom: "SEI",
+          coinMinimalDenom: "usei",
+          coinDecimals: 6,
+          coinGeckoId: "sei",
+        },
+      ],
+      feeCurrencies: [
+        {
+          coinDenom: "SEI",
+          coinMinimalDenom: "usei",
+          coinDecimals: 6,
+          coinGeckoId: "sei",
+          gasPriceStep: {
+            low: 0.01,
+            average: 0.025,
+            high: 0.04,
+          },
+        },
+      ],
+      stakeCurrency: {
+        coinDenom: "sei",
+        coinMinimalDenom: "usei",
+        coinDecimals: 6,
+        coinGeckoId: "sei",
+      },
+    });
+
+  }
+  const msgPlaceOrder = async () => {
+
+
+    const client = await stargateClient()
+
+    let msgOrder = {
+      typeUrl: '/seiprotocol.seichain.dex.MsgPlaceOrders',
+      value: {
+        creator: address,
+        funds: [{ denom: "uusdc", amount: "5000000" }],
+        contractAddr: contractAddr,
+        orders: [{
+          id: 0,
+          status: 0,
+          account: address,
+          contractAddr: contractAddr,
+          price: "200000",
+          quantity: "1",
+          priceDenom: "USDC",
+          assetDenom: "SEI",
+          orderType: 0,
+          positionDirection: 1,
+          data: "{\"leverage\":\"1\",\"position_effect\":\"Open\"}",
+          statusDescription: ""
+        }]
+      }
+    }
+
+    console.log("msg ", msgOrder)
+    console.log("signingCLient", signingClient)
+    const res = await client.signAndBroadcast(address, [msgOrder], fee, "test msg place order")
+    console.log("msg place order response", res)
+  }
+
+  const getAccountBalance = useCallback(async () => {
+    if (!isLoading) {
+
+      // const wallet = await DirectSecp256k1Wallet.fromKey(fromHex(privKey), 'sei');
+      const accounts = await offlineSigner?.getAccounts();
+      console.log("account address", accounts);
+
+
+      // Check whether account exist in blockchain or not 
+      const account = await queryClient.sei.auth.v1beta1.account({ address: accounts[0].address });
+      console.log("account info", account)
+
+      // If account not exist call the faucet 
+
+
+
+      // Query the account balance
+      const accountBalance = await queryClient.sei.bank.v1beta1.allBalances({ address: accounts[0].address });
+      console.log("account Balance", accountBalance);
+
+    }
+
+  }, [isLoading])
+
+  const getShorBookAllQuery = useCallback(async () => {
+
+    if (!isLoading) {
+      const query = await queryClient.seiprotocol.seichain.dex.shortBookAll({
+        contractAddr: contractAddr,
+        priceDenom: "USDC",
+        assetDenom: "SEI"
+      })
+      console.log("get short book query", query)
+    }
+
+  }, [isLoading])
+
+
+  const getLongBookAllQuery = useCallback(async () => {
+    if (!isLoading) {
+      const query = await queryClient.seiprotocol.seichain.dex.longBookAll({
+        contractAddr: contractAddr,
+        priceDenom: "SEI",
+        assetDenom: "USDC"
+      })
+      console.log("get long book query", query)
+    }
+
+  }, [isLoading])
+
+  const getOrdersOfAccount = useCallback(async () => {
+    if (!isLoading) {
+      const query = await queryClient.seiprotocol.seichain.dex.getOrders({
+        contractAddr: contractAddr,
+        account: "sei1kn2cp4n0cfg9063ny7my3qznte8ea07qh3qqcs",
+      })
+      console.log("Get orders of the account", query)
+    }
+
+  }, [isLoading])
+
+
   return (
     <div className="App">
       <div>
