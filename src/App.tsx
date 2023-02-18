@@ -3,10 +3,9 @@ import reactLogo from './assets/react.svg'
 import './App.css'
 
 import { useQueryClient, useWallet, useSigningClient } from '@sei-js/react'
-import { GasPrice, SigningStargateClient, StdFee, defaultRegistryTypes } from '@cosmjs/stargate'
+import {   StdFee } from '@cosmjs/stargate'
 import Long from 'long'
-import {Registry} from '@cosmjs/proto-signing'
-import { getSigningClient } from '@sei-js/core'
+
 
 const address = "sei129ekzf5pmmtf2ktkutzpkxch0pedkvq2sqqzkw";
 const contractAddr = "sei14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sh9m79m";
@@ -28,14 +27,6 @@ const fee: StdFee = {
 };
 
 
-
-const gasPrice = GasPrice.fromString('0.002usei');
-  const gasLimits = {
-    send: 200000,
-  };
-
-
-
 function App() {
   const [count, setCount] = useState(0)
 
@@ -47,20 +38,6 @@ function App() {
 
   const { queryClient, isLoading } = useQueryClient(chainConfig.restUrl)
   const { signingClient } = useSigningClient(chainConfig.rpcUrl, offlineSigner)
-
-  console.log("SigningClient",signingClient)
-  
-  const stargateClient = async() =>{
-    const options = { gasPrice: gasPrice, gasLimits: gasLimits, registry : await signingClient.registry};
-      const client = await SigningStargateClient.connectWithSigner(chainConfig.rpcUrl, offlineSigner, options)
-      return client
-  }
-
-  const getSeiSigningClient= async () =>{
-    const seiClient = await getSigningClient("localhost:26657", offlineSigner )
-    return seiClient
-  }
-
   useEffect(() => {
     suggestChain()
     getAccountBalance();
@@ -117,39 +94,71 @@ function App() {
     });
 
   }
+
+
+  
+  // Msg Place order for Long/Short SEI/USDC pair
+
+
+  // CASE 1: Sell SEI
   const msgPlaceOrder = async () => {
-
-
-    const client = await stargateClient()
-
     let msgOrder = {
       typeUrl: '/seiprotocol.seichain.dex.MsgPlaceOrders',
       value: {
         creator: address,
-        funds: [{ denom: "usdc", amount: "5000000" }],
+        funds: [{ denom: "usei", amount: "5000000" }], // Check this updat to usei
         contractAddr: contractAddr,
         orders: [{
           id: Long.fromNumber(0),
           status: 0,
           account: address,
           contractAddr: contractAddr,
-          price:"1000000000000000000",
+          price:"100000000000000000",
           quantity: "2000000000000000000",
           priceDenom: "USDC",
           assetDenom: "SEI",
           orderType: 0,
-          positionDirection: 0,
+          positionDirection: 1, // Long - 0 , Short -1
           data: "{\"leverage\":\"1\",\"position_effect\":\"Open\"}",
           statusDescription: ""
         }]
       }
     }
 
-    console.log("msg ", msgOrder)
-    console.log("signingCLient", client)
-    const res = await client.signAndBroadcast(address, [msgOrder], fee, "test msg place order")
+    const res = await signingClient.signAndBroadcast(address, [msgOrder], fee, "test msg place order")
     console.log("msg place order response", res)
   }
+
+
+  // CASE 2: Buy SEI
+  // const msgPlaceOrder = async () => {
+  //   let msgOrder = {
+  //     typeUrl: '/seiprotocol.seichain.dex.MsgPlaceOrders',
+  //     value: {
+  //       creator: address,
+  //       funds: [{ denom: "uusdc", amount: "5000000" }], // Check this  update to uusdc
+  //       contractAddr: contractAddr,
+  //       orders: [{
+  //         id: Long.fromNumber(0),
+  //         status: 0,
+  //         account: address,
+  //         contractAddr: contractAddr,
+  //         price:"100000000000000000",  // check the prices in orderbook  1 * 10 ^ 18
+  //         quantity: "2000000000000000000", // 1 * 10 ^ 18
+  //         priceDenom: "USDC",
+  //         assetDenom: "SEI",
+  //         orderType: 0,  // 0 -Limit, 1 - Market
+  //         positionDirection: 0,  // Check this 0 - Long, 1 - Short 
+  //         data: "{\"leverage\":\"1\",\"position_effect\":\"Open\"}",
+  //         statusDescription: ""
+  //       }]
+  //     }
+  //   }
+
+  //   const res = await signingClient.signAndBroadcast(address, [msgOrder], fee, "test msg place order")
+  //   console.log("msg place order response", res)
+  // }
+
 
   const getAccountBalance = useCallback(async () => {
     if (!isLoading) {
@@ -193,8 +202,8 @@ function App() {
     if (!isLoading) {
       const query = await queryClient.seiprotocol.seichain.dex.longBookAll({
         contractAddr: contractAddr,
-        priceDenom: "SEI",
-        assetDenom: "USDC"
+        priceDenom: "USDC",
+        assetDenom: "SEI"
       })
       console.log("get long book query", query)
     }
@@ -205,7 +214,7 @@ function App() {
     if (!isLoading) {
       const query = await queryClient.seiprotocol.seichain.dex.getOrders({
         contractAddr: contractAddr,
-        account: "sei1kn2cp4n0cfg9063ny7my3qznte8ea07qh3qqcs",
+        account: address,
       })
       console.log("Get orders of the account", query)
     }
