@@ -174,6 +174,10 @@ function App() {
       const accountBalance = await queryClient.cosmos.bank.v1beta1.allBalances({ address: accounts[0].address });
       console.log("account Balance", accountBalance);
 
+      // Query the account balance of particular denom 
+      const accountBalanceByDenom = await queryClient.cosmos.bank.v1beta1.balance({ address: accounts[0].address , denom :"uusdc"});
+      console.log("account balance by denom (uusdc)", accountBalanceByDenom)
+
     }
 
   }, [isLoading])
